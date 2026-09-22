@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPECTRE — analyse de contenu</title>
+<style>
+  :root { --bg:#0f1420; --card:#171e2e; --txt:#e8ecf4; --mut:#8b93a7; --acc:#5b8cff; --ok:#37c978; --err:#ff5d5d; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:820px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:1.5rem; margin:0 0 4px; }
+  h1 span { color:var(--acc); }
+  .sub { color:var(--mut); margin:0 0 20px; font-size:.95rem; }
+  .tabs { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .tab { padding:9px 16px; border-radius:10px; border:1px solid #2a3450; background:var(--card); color:var(--mut); cursor:pointer; font-size:.95rem; }
+  .tab.on { color:#fff; border-color:var(--acc); background:#1d2a45; }
+  .panel { display:none; }
+  .panel.on { display:block; }
+  textarea, input[type=text] { width:100%; background:#0c111c; color:var(--txt); border:1px solid #2a3450; border-radius:10px; padding:12px; font:inherit; }
+  textarea { min-height:180px; resize:vertical; }
+  input[type=file] { color:var(--mut); margin-top:6px; }
+  label.q { display:block; margin:14px 0 6px; color:var(--mut); font-size:.9rem; }
+  .row { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  button { background:var(--acc); border:0; color:#fff; padding:11px 22px; border-radius:10px; font:inherit; font-weight:600; cursor:pointer; }
+  button.sec { background:#242e48; }
+  button:disabled { opacity:.5; cursor:wait; }
+  #out { margin-top:22px; background:var(--card); border:1px solid #2a3450; border-radius:12px; padding:18px; white-space:pre-wrap; display:none; }
+  #meta { margin-top:10px; color:var(--mut); font-size:.85rem; display:none; }
+  .err { color:var(--err); }
+  .spinner { display:inline-block; width:14px; height:14px; border:2px solid #fff; border-bottom-color:transparent; border-radius:50%; animation:sp 1s linear infinite; vertical-align:-2px; margin-right:8px; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SPECTRE<span> ▍</span></h1>
+  <p class="sub">Lecture et analyse de contenu par IA — page web rendue, texte collé, document PDF/MD.</p>
+
+  <div class="tabs">
+    <button class="tab on" data-p="p-url">🌐 Page web</button>
+    <button class="tab" data-p="p-txt">📋 Texte collé</button>
+    <button class="tab" data-p="p-doc">📄 Document</button>
+  </div>
+
+  <div class="panel on" id="p-url">
+    <input type="text" id="url" placeholder="https://exemple.com/page" autocomplete="off">
+  </div>
+
+  <div class="panel" id="p-txt">
+    <textarea id="txt" placeholder="Collez ici le contenu d'une page web, d'un article, d'un email… (clic droit → Coller, ou Ctrl+V)"></textarea>
+  </div>
+
+  <div class="panel" id="p-doc">
+    <input type="file" id="doc" accept=".pdf,.md,.markdown,.txt">
+    <p class="sub" style="margin-bottom:0">PDF, Markdown ou texte — extrait puis analysé, rien ne quitte le serveur sauf la requête IA.</p>
+  </div>
+
+  <label class="q" for="q">Question (facultatif — sans question : résumé en 5 points)</label>
+  <input type="text" id="q" placeholder="Ex. : quels sont les prix mentionnés ?" autocomplete="off">
+
+  <div class="row">
+    <button id="go">Analyser</button>
+    <button id="clear" class="sec">Effacer</button>
+  </div>
+
+  <div id="out"></div>
+  <div id="meta"></div>
+</div>
+
+<script>
+const tabs = document.querySelectorAll('.tab');
+tabs.forEach(t => t.addEventListener('click', () => {
+  tabs.forEach(x => x.classList.remove('on'));
+  t.classList.add('on');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  document.getElementById(t.dataset.p).classList.add('on');
+}));
+document.getElementById('clear').onclick = () => {
+  ['url','txt','q'].forEach(i => document.getElementById(i).value = '');
+  document.getElementById('doc').value = '';
+  document.getElementById('out').style.display = 'none';
+  document.getElementById('meta').style.display = 'none';
+};
+document.getElementById('go').onclick = async () => {
+  const out = document.getElementById('out'), meta = document.getElementById('meta'), go = document.getElementById('go');
+  const p = document.querySelector('.tab.on').dataset.p;
+  const body = { mode: p === 'p-url' ? 'url' : p === 'p-txt' ? 'texte' : 'document', question: document.getElementById('q').value.trim() || null };
+  if (body.mode === 'url') body.url = document.getElementById('url').value.trim();
+  if (body.mode === 'texte') body.texte = document.getElementById('txt').value;
+  if (body.mode === 'document') {
+    const f = document.getElementById('doc').files[0];
+    if (!f) { show('Choisissez un fichier PDF, MD ou TXT.'); return; }
+    if (f.size > 20 * 1024 * 1024) { show('Fichier trop lourd (max 20 Mo).'); return; }
+    body.filename = f.name;
+    const buf = new Uint8Array(await f.arrayBuffer());
+    let bin = ''; buf.forEach(b => bin += String.fromCharCode(b));
+    body.content = btoa(bin);
+  }
+  go.disabled = true;
+  out.style.display = 'block';
+  out.className = '';
+  out.textContent = 'Lecture et analyse en cours…';
+  try {
+    const r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (j.ok) {
+      out.textContent = j.answer;
+      meta.style.display = 'block';
+      meta.textContent = 'source : ' + j.source + ' · ' + j.chars + ' caractères' + (j.capped ? ' (tronqués à 6000)' : '') + ' · modèle : ' + j.model + ' · ' + (j.ms / 1000).toFixed(1) + ' s';
+    } else {
+      out.className = 'err';
+      out.textContent = 'Erreur : ' + j.error;
+    }
+  } catch (e) {
+    out.className = 'err';
+    out.textContent = 'Erreur réseau ou délai dépassé (100 s max via Cloudflare).';
+  }
+  go.disabled = false;
+};
+function show(msg) {
+  const out = document.getElementById('out');
+  out.style.display = 'block'; out.className = 'err'; out.textContent = msg;
+  document.getElementById('meta').style.display = 'none';
+}
+</script>
+</body>
+</html>
