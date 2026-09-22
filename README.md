@@ -14,8 +14,8 @@ Nom du projet : **SPECTRE** — « voir à travers » le contenu (rendu JavaScri
 Sans question : résumé en 5 points + « En bref : ». Avec question : réponse basée uniquement sur le contenu fourni.
 
 ## IA
-- **OpenRouter** si `/etc/openrouter-key.txt` existe (root 600) — modèle configurable (`OPENROUTER_MODEL`, défaut `qwen/qwen-2.5-7b-instruct:free`). Réponse en 2-5 s au lieu de 50-80 s en Ollama CPU.
-- **Fallback automatique : Ollama local** (`qwen2.5:3b`, réseau `apps`, `keep_alive: 0` → RAM déchargée après chaque réponse). Si OpenRouter échoue, bascule silencieuse + log.
+- **OpenRouter** si `/etc/openrouter-key.txt` existe (root 600) — modèle configurable (`OPENROUTER_MODEL`, défaut `inclusionai/ling-3.0-flash-vl:free`). Réponse en 1-6 s au lieu de 11-76 s en Ollama CPU. ⚠️ Modèles gratuits : beaucoup sont bloqués par la data policy du compte OpenRouter (« 0 endpoints matching your guardrail restrictions ») — la famille `ling-3.0-flash` fonctionne ; pour débloquer gemma/qwen, activer les endpoints d entraînement dans les réglages Privacy du compte.
+- **Fallback automatique : Ollama local** (`qwen2.5:3b`, réseau `apps`, `keep_alive: 0` → RAM déchargée après chaque réponse). Si OpenRouter échoue (404 modèle, 429, API down), bascule silencieuse + log.
 - Le texte envoyé à l'IA est plafonné à **3 000 caractères (comme ÉCLAIREUR — prompt eval CPU)** (latence CPU + limite Cloudflare 100 s).
 
 ## Déploiement (VPS)
@@ -38,7 +38,7 @@ Réponse : `{ok, source, chars, capped, answer, model, ms}` ou `{ok:false, error
 `GET /healthz` → `{ok:true}`.
 
 ## Tests réels (22/09)
-- URL Wikipedia (Browserless + Ollama 3b) : résumé complet en ~76 s (OpenRouter : ~5 s attendus).
+- URL Wikipedia : résumé complet **5,5 s** en OpenRouter (76 s en Ollama 3b), texte collé **1,6 s**.
 - Texte collé : analyse < 20 s.
 - PDF multi-pages : texte extrait, analyse OK. MD : direct.
 - Erreurs propres : URL invalide, fichier non supporté, texte vide.

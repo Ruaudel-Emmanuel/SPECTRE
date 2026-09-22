@@ -4,11 +4,13 @@ services:
     container_name: spectre
     ports:
       - "127.0.0.1:8087:8087"
+    volumes:
+      - /etc/openrouter-key.txt:/etc/openrouter-key.txt:ro
     environment:
       - BROWSERLESS_TOKEN=${BROWSERLESS_TOKEN}
       # IA : Ollama local par défaut. Pour OpenRouter, créer /etc/openrouter-key.txt
       # et monter le fichier : - /etc/openrouter-key.txt:/etc/openrouter-key.txt:ro
-      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-qwen/qwen-2.5-7b-instruct:free}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-inclusionai/ling-3.0-flash-vl:free}
     mem_limit: 512m
     restart: unless-stopped
     networks:
